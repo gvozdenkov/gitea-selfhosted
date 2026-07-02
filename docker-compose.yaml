@@ -1,0 +1,95 @@
+services:
+  gitea-db:
+    container_name: gitea-postgres
+    image: docker.io/postgres:17-alpine
+    restart: always
+    shm_size: 512mb # sync with shared_buffers in performance-tweaks.conf
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitea -d gitea"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - gitea-network
+    volumes:
+      - gitea-db-data:/var/lib/postgresql/data
+      - ./src/postgres/performance-tweaks.conf:/var/lib/postgresql/data/conf.d/01-performance.conf
+
+  pgadmin:
+    image: docker.io/dpage/pgadmin4:9.16
+    container_name: pgadmin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    environment:
+      # Required by pgAdmin
+      PGADMIN_DEFAULT_EMAIL: demo@example.com
+      PGADMIN_DEFAULT_PASSWORD: secret
+      # Don't require the user to login
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      # Don't require a "master" password after logging in
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    depends_on:
+      - gitea-db
+    networks:
+      - gitea-network
+
+  gitea:
+    container_name: gitea
+    image: docker.gitea.com/gitea:1.26.4
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=gitea-db:5432
+      - GITEA__database__NAME=${POSTGRES_DB}
+      - GITEA__database__USER=${POSTGRES_USER}
+      - GITEA__database__PASSWD=${POSTGRES_PASSWORD}
+      - GITEA__server__ROOT_URL=https://gitea.local
+      - GITEA__server__LOCAL_ROOT_URL=http://localhost:3000/
+      - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
+      - GITEA__security__INTERNAL_TOKEN=${GITEA__security__INTERNAL_TOKEN}
+    volumes:
+      - gitea-data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "2222:22"
+    networks:
+      - gitea-network
+    depends_on:
+      - gitea-db
+
+  nginx:
+    container_name: nginx
+    image: nginx:alpine
+    networks:
+      - gitea-network
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./src/certs:/etc/nginx/certs:ro
+    depends_on:
+      - gitea
+      - pgadmin
+
+networks:
+  gitea-network:
+    name: gitea-network
+    external: false
+    driver: bridge
+
+volumes:
+  gitea-db-data:
+    # TODO: more details about volume types pros/cons
+    name: ${DATABASE_VOLUME_NAME}
+  pgadmin_data:
+    name: pgadmin_data
+  gitea-data:
+    name: gitea-data
