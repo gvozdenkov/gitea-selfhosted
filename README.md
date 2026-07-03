@@ -9,6 +9,21 @@ docker run -it --rm docker.gitea.com/gitea:1.26.4 gitea generate secret SECRET_K
 docker run -it --rm docker.gitea.com/gitea:1.26.4 gitea generate secret INTERNAL_TOKEN
 ```
 
+### Drone Webhook
+
+If hook don't created by Drone server, create it manually on `https://gitea.local/user/settings/hooks`
+
+Set `Target URL: https://drone-server.local`
+
+Gitea then will send request to drone-server.local, docker dns will see nginx alias and route request to it. Nginx next proxy pass to drone-server container
+
+!!! In .drone.yml disable ssl check
+
+```sh
+clone:
+  skip_verify: true
+```
+
 ## Запуск локального SSL
 
 1. Install mkcert `apt install mkcert`
