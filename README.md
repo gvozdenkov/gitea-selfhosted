@@ -9,6 +9,12 @@ docker run -it --rm docker.gitea.com/gitea:1.26.4 gitea generate secret SECRET_K
 docker run -it --rm docker.gitea.com/gitea:1.26.4 gitea generate secret INTERNAL_TOKEN
 ```
 
+Add new remote in with custom ssh port:
+
+```sh
+git remote add origin ssh://git@gitea.local:2222/<username>/<repo>.git
+```
+
 ## Запуск локального SSL
 
 1. Install mkcert `apt install mkcert`
