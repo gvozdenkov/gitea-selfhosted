@@ -115,6 +115,7 @@ services:
     container_name: drone-server
     volumes:
       - drone-data:/data
+      - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
     environment:
       # Интеграция с Gitea (данные из OAuth-приложения в Gitea)
       - DRONE_GITEA_CLIENT_ID=${DRONE_GITEA_CLIENT_ID}
@@ -145,14 +146,16 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
     environment:
       - DRONE_RPC_HOST=drone-server
       - DRONE_RPC_PROTO=http
       - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
       - DRONE_RUNNER_NAME=local-docker-runner
       - DRONE_RUNNER_CAPACITY=2
-    extra_hosts:
-      - "gitea.local:host-gateway"
+      - DRONE_SKIP_VERIFY=true
+      # Create job containers inside docker network, but require custom clone step
+      - DRONE_RUNNER_NETWORKS=gitea-network
     networks:
       - gitea-network
     depends_on:
