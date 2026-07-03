@@ -23,5 +23,5 @@ git remote add origin ssh://git@gitea.local:2222/<username>/<repo>.git
 4. Сгенерируйте сертификаты:
 
 ```sh
-  cd src/certs && mkcert gitea.local pgadmin.local
+  cd src/certs && mkcert gitea.local pgadmin.local drone-server.local
 ```
