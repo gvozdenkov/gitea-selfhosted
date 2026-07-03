@@ -71,10 +71,12 @@ services:
       - GITEA__i18n__NAMES=English
       - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
       - GITEA__security__INTERNAL_TOKEN=${GITEA__security__INTERNAL_TOKEN}
+      - GITEA__webhook__ALLOWED_HOST_LIST=external,loopback,private
     volumes:
       - gitea-data:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
+      - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"]
       interval: 10s
@@ -93,7 +95,11 @@ services:
     container_name: nginx
     image: nginx:alpine
     networks:
-      - gitea-network
+      gitea-network:
+        # TODO: read more about aliases
+        aliases:
+          - gitea.local
+          - drone-server.local
     ports:
       - "80:80"
       - "443:443"
@@ -134,8 +140,6 @@ services:
 
       - DRONE_DATABASE_DRIVER=postgres
       - DRONE_DATABASE_DATASOURCE=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gitea-db:5432/drone?sslmode=disable
-    extra_hosts:
-      - "gitea.local:host-gateway"
     networks:
       - gitea-network
     restart: always
