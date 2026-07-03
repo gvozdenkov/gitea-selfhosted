@@ -62,7 +62,12 @@ services:
       - GITEA__database__USER=${POSTGRES_USER}
       - GITEA__database__PASSWD=${POSTGRES_PASSWORD}
       - GITEA__server__ROOT_URL=https://gitea.local
-      - GITEA__server__LOCAL_ROOT_URL=http://localhost:3000/
+      - GITEA__server__DOMAIN=gitea.local
+      - GITEA__server__SSH_DOMAIN=gitea.local
+      - GITEA__server__SSH_PORT=2222
+      - GITEA__server__DISABLE_HTTP_GIT=false
+      - GITEA__i18n__LANGS=en-US
+      - GITEA__i18n__NAMES=English
       - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
       - GITEA__security__INTERNAL_TOKEN=${GITEA__security__INTERNAL_TOKEN}
     volumes:
