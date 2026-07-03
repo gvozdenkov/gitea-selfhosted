@@ -11,10 +11,11 @@ docker run -it --rm docker.gitea.com/gitea:1.26.4 gitea generate secret INTERNAL
 
 ## Запуск локального SSL
 
-1. Установите mkcert `apt install mkcert`
-2. Выполните: `mkcert -install`
-3. Сгенерируйте сертификаты:
+1. Install mkcert `apt install mkcert`
+2. Install root CA certs `mkcert -install`
+3. If install failed for browser - manual install. `mkcert -CAROOT` get path to root CA certs. Then install for Chrome at `hrome://certificate-manager`
+4. Сгенерируйте сертификаты:
 
 ```sh
-  mkcert -cert-file ./src/certs/gitea.local.crt -key-file ./src/certs/gitea.local.key gitea.local *.gitea.local
+  cd src/certs && mkcert gitea.local pgadmin.local
 ```

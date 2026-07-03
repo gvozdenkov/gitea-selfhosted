@@ -2,3 +2,4 @@
 !.env*.example
 *.crt
 *.key
+*.pem
