@@ -1,3 +1,28 @@
+networks:
+  proxy-net:
+    name: proxy-net
+    driver: bridge
+  git-net:
+    name: git-net
+    driver: bridge
+  ci-net:
+    name: ci-net
+    driver: bridge
+  db-net:
+    name: db-net
+    internal: true
+    driver: bridge
+
+volumes:
+  gitea-db-data:
+    name: gitea-db-data
+  pgadmin-data:
+    name: pgadmin-data
+  gitea-data:
+    name: gitea-data
+  drone-data:
+    name: drone-data
+
 services:
   gitea-db:
     container_name: gitea-postgres
@@ -15,7 +40,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - gitea-network
+      - db-net
     volumes:
       - gitea-db-data:/var/lib/postgresql/data
       - ./src/postgres/init-scripts/:/docker-entrypoint-initdb.d:ro
@@ -27,8 +52,8 @@ services:
       - pgadmin-data:/var/lib/pgadmin
     environment:
       # Required by pgAdmin
-      PGADMIN_DEFAULT_EMAIL: demo@example.com
-      PGADMIN_DEFAULT_PASSWORD: secret
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       # Don't require the user to login
       PGADMIN_CONFIG_SERVER_MODE: "False"
       # Don't require a "master" password after logging in
@@ -49,7 +74,8 @@ services:
       gitea-db:
         condition: service_healthy
     networks:
-      - gitea-network
+      - proxy-net
+      - db-net
 
   gitea:
     container_name: gitea
@@ -66,7 +92,6 @@ services:
       - GITEA__server__DOMAIN=gitea.local
       - GITEA__server__SSH_DOMAIN=gitea.local
       - GITEA__server__SSH_PORT=2222
-      - GITEA__server__DISABLE_HTTP_GIT=false
       - GITEA__i18n__LANGS=en-US
       - GITEA__i18n__NAMES=English
       - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
@@ -86,7 +111,9 @@ services:
     ports:
       - "2222:22"
     networks:
-      - gitea-network
+      - proxy-net
+      - git-net
+      - db-net
     depends_on:
       gitea-db:
         condition: service_healthy
@@ -95,11 +122,13 @@ services:
     container_name: nginx
     image: nginx:alpine
     networks:
-      gitea-network:
-        # TODO: read more about aliases
+      proxy-net:
         aliases:
           - gitea.local
           - drone-server.local
+      ci-net:
+        aliases:
+          - gitea.local
     ports:
       - "80:80"
       - "443:443"
@@ -141,7 +170,10 @@ services:
       - DRONE_DATABASE_DRIVER=postgres
       - DRONE_DATABASE_DATASOURCE=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gitea-db:5432/drone?sslmode=disable
     networks:
-      - gitea-network
+      - proxy-net
+      - git-net
+      - ci-net
+      - db-net
     restart: always
 
   drone-runner:
@@ -158,26 +190,8 @@ services:
       - DRONE_RUNNER_NAME=local-docker-runner
       - DRONE_RUNNER_CAPACITY=2
       - DRONE_SKIP_VERIFY=true
-      # Create job containers inside docker network, but require custom clone step
-      - DRONE_RUNNER_NETWORKS=gitea-network
+      - DRONE_RUNNER_NETWORKS=ci-net
     networks:
-      - gitea-network
+      - ci-net
     depends_on:
       - drone-server
-
-networks:
-  gitea-network:
-    name: gitea-network
-    external: false
-    driver: bridge
-
-volumes:
-  gitea-db-data:
-    # TODO: more details about volume types pros/cons
-    name: gitea-db-data
-  pgadmin-data:
-    name: pgadmin-data
-  gitea-data:
-    name: gitea-data
-  drone-data:
-    name: drone-data
