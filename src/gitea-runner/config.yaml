@@ -1,0 +1,16 @@
+runner:
+  insecure: true
+  network: "ci-net"
+
+container:
+  # Направляем gitea.local на имя контейнера nginx.
+  # Docker Daemon свяжет этот хост, так как сам gitea-runner имеет доступ к proxy-net!
+  extra_hosts:
+    - "gitea.local:nginx"
+
+  env:
+    GIT_SSL_NO_VERIFY: "true"
+    NODE_TLS_REJECT_UNAUTHORIZED: "0"
+  # Монтируем сертификат с хоста самого раннера внутрь контейнеров воркфлоу
+  volumes:
+    - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
