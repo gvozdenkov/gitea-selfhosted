@@ -44,14 +44,10 @@ services:
       - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./src/certs:/etc/nginx/certs:ro
     depends_on:
-      gitea:
-        condition: service_healthy
-      pgadmin:
-        condition: service_started
-      drone-server:
-        condition: service_started
-      drone-runner:
-        condition: service_started
+      - gitea
+      - pgadmin
+      - drone-server
+      - drone-runner
 
   gitea-db:
     container_name: gitea-postgres
@@ -62,12 +58,6 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     networks:
       - gitea-db-net
       - drone-db-net
@@ -106,20 +96,6 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "curl",
-          "-f",
-          "-H",
-          "Host: gitea.local",
-          "http://localhost:3000/api/healthz",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     ports:
       - "2222:22"
     networks:
@@ -129,8 +105,7 @@ services:
         aliases:
           - gitea
     depends_on:
-      gitea-db:
-        condition: service_healthy
+      - gitea-db
 
   gitea-runner:
     image: gitea/act_runner:latest
@@ -152,8 +127,7 @@ services:
       - ci-net
       - proxy-net
     depends_on:
-      gitea:
-        condition: service_healthy
+      - gitea
 
   drone-server:
     image: drone/drone:2
@@ -218,21 +192,8 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: "False"
       # Don't require a "master" password after logging in
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python3",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:80/misc/ping')",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
     depends_on:
-      gitea-db:
-        condition: service_healthy
+      - gitea-db
     networks:
       - proxy-net
       - pgadmin-db-net
