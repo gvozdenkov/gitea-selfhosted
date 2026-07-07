@@ -22,6 +22,7 @@ services:
     image: docker.io/nginx:1.31
     networks:
       gitea-net:
+        ipv4_address: 172.18.0.30
         aliases:
           - gitea.local
           - drone-server.local
@@ -72,12 +73,12 @@ services:
       - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
       - GITEA__security__INTERNAL_TOKEN=${GITEA__security__INTERNAL_TOKEN}
       - GITEA__webhook__ALLOWED_HOST_LIST=external,loopback,private
-      - GITEA__actions__DEFAULT_ACTIONS_URL=github
+      - GITEA__actions__DEFAULT_ACTIONS_URL=self
     volumes:
       - gitea-data:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-      - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
+      - ./src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
     ports:
       - "2222:22"
     networks:
@@ -90,15 +91,15 @@ services:
     volumes:
       - gitea-runner-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
-      - ./src/gitea-runner/config.yaml:/config.yaml:ro
+      - ./src/certs/rootCA.pem:/usr/local/share/ca-certificates/rootCA.crt:ro
+      - ./src/gitea-runner/config.yaml:/data/config.yaml:ro
     environment:
-      - GITEA_INSTANCE_INSECURE=false
+      - GITEA_INSTANCE_INSECURE=true
       - GITEA_INSTANCE_URL=https://gitea.local
       - GITEA_RUNNER_REGISTRATION_TOKEN=${GITEA_RUNNER_REGISTRATION_TOKEN}
       - GITEA_RUNNER_NAME=local-gitea-runner
-      - GITEA_RUNNER_EXTRA_ARGS=--insecure
-      - CONFIG_FILE=/config.yaml
+      # - GITEA_RUNNER_EXTRA_ARGS=--insecure
+      - CONFIG_FILE=/data/config.yaml
     networks:
       - gitea-net
 

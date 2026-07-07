@@ -1,16 +1,21 @@
 runner:
-  insecure: false
+  insecure: true
   network: "gitea-net"
 
 container:
-  # Направляем gitea.local на имя контейнера nginx.
-  # Docker Daemon свяжет этот хост, так как сам gitea-runner имеет доступ к proxy-net!
+  network: "gitea-net"
+
   extra_hosts:
-    - "gitea.local:nginx"
+    - "gitea.local:172.18.0.30"
+    - "drone-server.local:172.18.0.30"
+
+  # Разрешаем использовать системную директорию хост-машины
+  valid_volumes:
+    - "/etc/ssl/certs"
+
+  # Монтируем проверенную системную папку хоста с сертификатами прямо в контейнеры джоб
+  options: "--mount type=bind,source=/etc/ssl/certs,target=/etc/ssl/certs,readonly"
 
   env:
     GIT_SSL_NO_VERIFY: "true"
     NODE_TLS_REJECT_UNAUTHORIZED: "0"
-  # Монтируем сертификат с хоста самого раннера внутрь контейнеров воркфлоу
-  volumes:
-    - /home/arty/gitea/src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
