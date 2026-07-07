@@ -64,6 +64,9 @@ services:
       - GITEA__server__SSH_PORT=2222
       - GITEA__server__ROOT_URL=https://gitea.local
       - GITEA__server__ENABLE_REVERSE_PROXY=true
+      - GITEA__packages__ENABLED=true
+      - GITEA__packages__STORAGE_TYPE=local
+      - GITEA__packages__PATH=/data/gitea/packages
       - GITEA__i18n__LANGS=en-US
       - GITEA__i18n__NAMES=English
       - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
