@@ -1,19 +1,7 @@
 networks:
-  proxy-net:
-    name: proxy-net
+  gitea-net:
+    name: gitea-net
     driver: bridge
-  ci-net:
-    name: ci-net
-    driver: bridge
-  gitea-db-net:
-    name: gitea-db-net
-    internal: true
-  drone-db-net:
-    name: drone-db-net
-    internal: true
-  pgadmin-db-net:
-    name: pgadmin-db-net
-    internal: true
 
 volumes:
   gitea-db-data:
@@ -33,21 +21,15 @@ services:
     container_name: nginx
     image: docker.io/nginx:1.31
     networks:
-      proxy-net:
+      gitea-net:
         aliases:
           - gitea.local
-          - drone-server.local
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./src/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./src/certs:/etc/nginx/certs:ro
-    depends_on:
-      - gitea
-      - pgadmin
-      - drone-server
-      - drone-runner
 
   gitea-db:
     container_name: gitea-postgres
@@ -59,9 +41,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     networks:
-      - gitea-db-net
-      - drone-db-net
-      - pgadmin-db-net
+      - gitea-net
     volumes:
       - gitea-db-data:/var/lib/postgresql/data
       - ./src/postgres/init-scripts/:/docker-entrypoint-initdb.d:ro
@@ -72,7 +52,6 @@ services:
     environment:
       - USER_UID=1000
       - USER_GID=1000
-      - GITEA__DEFAULT__APP_NAME=Pandora Gitea
       - GITEA__database__DB_TYPE=postgres
       - GITEA__database__HOST=gitea-db:5432
       - GITEA__database__NAME=${POSTGRES_DB}
@@ -89,7 +68,6 @@ services:
       - GITEA__security__SECRET_KEY=${GITEA__security__SECRET_KEY}
       - GITEA__security__INTERNAL_TOKEN=${GITEA__security__INTERNAL_TOKEN}
       - GITEA__webhook__ALLOWED_HOST_LIST=external,loopback,private
-      - GITEA__actions__ENABLED=true
       - GITEA__actions__DEFAULT_ACTIONS_URL=github
     volumes:
       - gitea-data:/data
@@ -99,22 +77,16 @@ services:
     ports:
       - "2222:22"
     networks:
-      proxy-net: {}
-      gitea-db-net: {}
-      ci-net:
-        aliases:
-          - gitea
-    depends_on:
-      - gitea-db
+      - gitea-net
 
   gitea-runner:
     image: gitea/act_runner:0
     container_name: gitea-runner
     restart: always
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
       - gitea-runner-data:/data
-      - ./src/certs/rootCA.pem:/etc/ssl/certs.pem:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
       - ./src/gitea-runner/config.yaml:/config.yaml:ro
     environment:
       - GITEA_INSTANCE_INSECURE=true
@@ -124,76 +96,66 @@ services:
       - GITEA_RUNNER_EXTRA_ARGS=--insecure
       - CONFIG_FILE=/config.yaml
     networks:
-      - ci-net
-      - proxy-net
-    depends_on:
-      - gitea
+      - gitea-net
 
-  drone-server:
-    image: drone/drone:2
-    container_name: drone-server
-    volumes:
-      - drone-data:/data
-      - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
-    environment:
-      # Интеграция с Gitea (данные из OAuth-приложения в Gitea)
-      - DRONE_GITEA_CLIENT_ID=${DRONE_GITEA_CLIENT_ID}
-      - DRONE_GITEA_CLIENT_SECRET=${DRONE_GITEA_CLIENT_SECRET}
-      - DRONE_GITEA_SERVER=https://gitea.local
+  # pgadmin:
+  #   image: docker.io/dpage/pgadmin4:9.16
+  #   container_name: pgadmin
+  #   volumes:
+  #     - pgadmin-data:/var/lib/pgadmin
+  #   environment:
+  #     # Required by pgAdmin
+  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+  #     # Don't require the user to login
+  #     PGADMIN_CONFIG_SERVER_MODE: "False"
+  #     # Don't require a "master" password after logging in
+  #     PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+  #   networks:
+  #     - gitea-net
 
-      # Внешний адрес Drone (обязательно HTTPS, так как Nginx принимает HTTPS)
-      - DRONE_SERVER_HOST=drone-server.local
-      - DRONE_SERVER_PROTO=https
+  # drone-server:
+  #   image: drone/drone:2
+  #   container_name: drone-server
+  #   volumes:
+  #     - drone-data:/data
+  #     - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
+  #   environment:
+  #     # Интеграция с Gitea (данные из OAuth-приложения в Gitea)
+  #     - DRONE_GITEA_CLIENT_ID=${DRONE_GITEA_CLIENT_ID}
+  #     - DRONE_GITEA_CLIENT_SECRET=${DRONE_GITEA_CLIENT_SECRET}
+  #     - DRONE_GITEA_SERVER=https://gitea.local
 
-      # Секретный ключ для связи Drone Server <-> Drone Runner (сгенерируйте случайную строку)
-      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+  #     # Внешний адрес Drone (обязательно HTTPS, так как Nginx принимает HTTPS)
+  #     - DRONE_SERVER_HOST=drone-server.local
+  #     - DRONE_SERVER_PROTO=https
 
-      # Разрешить Drone использовать авторизацию Gitea для git clone
-      - DRONE_GIT_ALWAYS_AUTH=false
+  #     # Секретный ключ для связи Drone Server <-> Drone Runner (сгенерируйте случайную строку)
+  #     - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
 
-      - DRONE_DATABASE_DRIVER=postgres
-      - DRONE_DATABASE_DATASOURCE=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gitea-db:5432/drone?sslmode=disable
-    networks:
-      - proxy-net
-      - drone-db-net
-    restart: always
+  #     # Разрешить Drone использовать авторизацию Gitea для git clone
+  #     - DRONE_GIT_ALWAYS_AUTH=false
 
-  drone-runner:
-    image: drone/drone-runner-docker:1
-    container_name: drone-runner
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
-    environment:
-      - DRONE_RPC_HOST=drone-server.local
-      - DRONE_RPC_PROTO=https
-      - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
-      - DRONE_RUNNER_NAME=local-docker-runner
-      - DRONE_RUNNER_CAPACITY=2
-      - DRONE_SKIP_VERIFY=true
-      - DRONE_RUNNER_NETWORKS=ci-net
-    networks:
-      - ci-net
-      - proxy-net
-    depends_on:
-      - drone-server
+  #     - DRONE_DATABASE_DRIVER=postgres
+  #     - DRONE_DATABASE_DATASOURCE=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@gitea-db:5432/drone?sslmode=disable
+  #   networks:
+  #     - gitea-net
+  #   restart: always
 
-  pgadmin:
-    image: docker.io/dpage/pgadmin4:9.16
-    container_name: pgadmin
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    environment:
-      # Required by pgAdmin
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      # Don't require the user to login
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      # Don't require a "master" password after logging in
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-    depends_on:
-      - gitea-db
-    networks:
-      - proxy-net
-      - pgadmin-db-net
+  # drone-runner:
+  #   image: drone/drone-runner-docker:1
+  #   container_name: drone-runner
+  #   restart: always
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./src/certs/rootCA.pem:/etc/ssl/certs/rootCA.pem:ro
+  #   environment:
+  #     - DRONE_RPC_HOST=drone-server.local
+  #     - DRONE_RPC_PROTO=https
+  #     - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
+  #     - DRONE_RUNNER_NAME=local-docker-runner
+  #     - DRONE_RUNNER_CAPACITY=2
+  #     - DRONE_SKIP_VERIFY=true
+  #     - DRONE_RUNNER_NETWORKS=ci-net
+  #   networks:
+  #     - gitea-net

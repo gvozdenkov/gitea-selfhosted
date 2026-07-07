@@ -1,6 +1,6 @@
 runner:
   insecure: true
-  network: "ci-net"
+  network: "gitea-net"
 
 container:
   # Направляем gitea.local на имя контейнера nginx.
