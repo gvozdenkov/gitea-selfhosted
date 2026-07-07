@@ -1,5 +1,5 @@
 runner:
-  insecure: true
+  insecure: false
   network: "gitea-net"
 
 container:
@@ -13,4 +13,4 @@ container:
     NODE_TLS_REJECT_UNAUTHORIZED: "0"
   # Монтируем сертификат с хоста самого раннера внутрь контейнеров воркфлоу
   volumes:
-    - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+    - /home/arty/gitea/src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
