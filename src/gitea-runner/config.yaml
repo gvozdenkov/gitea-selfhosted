@@ -6,8 +6,8 @@ container:
   network: "gitea-net"
 
   extra_hosts:
-    - "gitea.local:172.18.0.30"
-    - "drone-server.local:172.18.0.30"
+    - "gitea:172.19.0.30"
+    - "gitea.local:172.19.0.30"
 
   # Разрешаем использовать системную директорию хост-машины
   valid_volumes:
