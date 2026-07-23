@@ -26,6 +26,7 @@ services:
         ipv4_address: 172.19.0.30
         aliases:
           - gitea.local
+          - gitea-webhook-proxy.local
           # - drone-server.local
     ports:
       - "80:80"
@@ -52,7 +53,7 @@ services:
 
   gitea:
     container_name: gitea
-    image: docker.gitea.com/gitea:1.26.4
+    image: docker.gitea.com/gitea:1.27.0
     environment:
       - USER_UID=1000
       - USER_GID=1000
@@ -106,6 +107,32 @@ services:
     networks:
       - gitea-net
 
+  # go-api:
+  #   container_name: go-api
+  #   image: gitea.local/mes/go-api:6.0.0-dev
+  #   restart: unless-stopped
+  #   environment:
+  #     - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${API_DB}?sslmode=disable
+  #     - VERSION=5.7.0-dev
+  #   ports:
+  #     - "3007:8080"
+  #   networks:
+  #     - gitea-net
+  #   depends_on:
+  #     - db
+
+  gitea-webhook-proxy:
+    container_name: gitea-webhook-proxy
+    image: gitea.local/mes-infra/gitea-webhook-proxy:0.1.0
+    restart: unless-stopped
+    environment:
+      - GITEA_URL=http://gitea:3000
+      - WEBHOOK_SECRET=super-secure-webhook-hmac-secret
+    networks:
+      - gitea-net
+    depends_on:
+      - gitea
+
   pgadmin:
     image: docker.io/dpage/pgadmin4:9.16
     container_name: pgadmin
@@ -121,49 +148,3 @@ services:
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
     networks:
       - gitea-net
-
-  # drone-server:
-  #   image: drone/drone:2
-  #   container_name: drone-server
-  #   volumes:
-  #     - drone-data:/data
-  #     - ./src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
-  #   environment:
-  #     # Интеграция с Gitea (данные из OAuth-приложения в Gitea)
-  #     - DRONE_GITEA_CLIENT_ID=${DRONE_GITEA_CLIENT_ID}
-  #     - DRONE_GITEA_CLIENT_SECRET=${DRONE_GITEA_CLIENT_SECRET}
-  #     - DRONE_GITEA_SERVER=https://gitea.local
-
-  #     # Внешний адрес Drone (обязательно HTTPS, так как Nginx принимает HTTPS)
-  #     - DRONE_SERVER_HOST=drone-server.local
-  #     - DRONE_SERVER_PROTO=https
-
-  #     # Секретный ключ для связи Drone Server <-> Drone Runner (сгенерируйте случайную строку)
-  #     - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
-
-  #     # Разрешить Drone использовать авторизацию Gitea для git clone
-  #     - DRONE_GIT_ALWAYS_AUTH=false
-
-  #     - DRONE_DATABASE_DRIVER=postgres
-  #     - DRONE_DATABASE_DATASOURCE=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/drone?sslmode=disable
-  #   networks:
-  #     - gitea-net
-  #   restart: always
-
-  # drone-runner:
-  #   image: drone/drone-runner-docker:1
-  #   container_name: drone-runner
-  #   restart: always
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #     - ./src/certs/rootCA.pem:/etc/ssl/certs/ca-certificates.crt:ro
-  #   environment:
-  #     - DRONE_RPC_HOST=drone-server.local
-  #     - DRONE_RPC_PROTO=https
-  #     - DRONE_RPC_SECRET=${DRONE_RPC_SECRET}
-  #     - DRONE_RUNNER_NAME=local-docker-runner
-  #     - DRONE_RUNNER_CAPACITY=2
-  #     - DRONE_SKIP_VERIFY=true
-  #     - DRONE_RUNNER_NETWORKS=gitea-net
-  #   networks:
-  #     - gitea-net
